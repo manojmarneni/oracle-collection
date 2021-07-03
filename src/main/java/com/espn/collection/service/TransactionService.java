@@ -10,9 +10,8 @@ import com.espn.collection.vo.TransactionRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
+import javax.transaction.Transactional;
 import java.util.List;
-import java.util.Set;
 
 @Service
 public class TransactionService {
@@ -27,6 +26,7 @@ public class TransactionService {
   @Autowired TransfersRepository transfersRepository;
   @Autowired TransactionRepository transactionRepository;
 
+  @Transactional
   public String triggerCollection(TransactionRequest transactionRequest) {
 
     List<TeamMembers> teamMembers =
@@ -43,6 +43,7 @@ public class TransactionService {
                 .leaderId(transactionRequest.getLeaderId())
                 .csrfToken(transactionRequest.getCsrfToken())
                 .cookie(transactionRequest.getCookie())
+                .password(transactionRequest.getPassword())
                 .build());
     for (TeamMembers teamMember : teamMembers) {
       //      if (!transferEligibleMembers.contains(teamMember.getMemberId())) continue;

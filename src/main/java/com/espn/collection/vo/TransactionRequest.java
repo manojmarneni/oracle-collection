@@ -19,4 +19,8 @@ public class TransactionRequest  {
     @NonNull
     String cookie;
 
+    @JsonProperty("password")
+    @NonNull
+    String password;
+
 }

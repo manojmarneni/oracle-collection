@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import javax.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -23,8 +24,9 @@ public class TransferService {
 
   @Autowired TransfersRepository transfersRepository;
 
-  public static final String ESPN_URL = "fooResourceUrl";
+  public static final String ESPN_URL = "https://carnation.e-oracle.com/withdraw_action";
 
+  @Transactional
   public String transferMoney(String transactionId) {
 
     Optional<Transaction> optionalTransaction =
@@ -43,7 +45,7 @@ public class TransferService {
     HttpHeaders headers = getHttpHeaders(transaction.getCsrfToken(), transaction.getCookie());
 
     String requestBody =
-        "withdrawAction=doIncomeTransferMailConfirmation&transferType=Other&receiverWallet=MasterWallet&receiverUsername="
+        "withdrawAction=doIncomeTransferMailConfirmation&transferType=Other&receiverWallet=MasterWallet&receiverUsername=withdrawAction=doIncomeTransferMailConfirmation&transferType=Other&receiverWallet=MasterWallet&receiverUsername="
             + currentTransfer.getMemberId()
             + "&baseAmt=10&loginPassword="
             + transaction.getPassword()
@@ -66,8 +68,8 @@ public class TransferService {
         : "FAILED FOR " + currentTransfer.getMemberId();
   }
 
+  @Transactional
   public String transferMoney(String transactionId, String otp) {
-
     Optional<Transaction> optionalTransaction =
         transactionRepository.findById(Long.valueOf(transactionId));
     if (!optionalTransaction.isPresent()) return "INVALID TRANSACTION ID";
@@ -86,7 +88,7 @@ public class TransferService {
     HttpHeaders headers = getHttpHeaders(transaction.getCsrfToken(), transaction.getCookie());
 
     String requestBody =
-        "doIncomeTransfer&transferType=Other&receiverWallet=MasterWallet&receiverUsername="
+        "withdrawAction=doIncomeTransfer&transferType=Other&receiverWallet=MasterWallet&receiverUsername="
             + currentTransfer.getMemberId()
             + "&baseAmt=10&loginPassword="
             + transaction.getPassword()
@@ -98,10 +100,12 @@ public class TransferService {
     ResponseEntity<String> response =
         restTemplate.exchange(ESPN_URL, HttpMethod.POST, request, String.class);
 
+    String nextTransactionResponse = "";
+
     if (response.getStatusCode().is2xxSuccessful()) {
       currentTransfer.setStatus(Transfers.Status.SUCCESS.name());
       transfersRepository.save(currentTransfer);
-      transferMoney(transactionId);
+      nextTransactionResponse = transferMoney(transactionId);
     } else {
       currentTransfer.setStatus(Transfers.Status.FAILURE.name());
       transfersRepository.save(currentTransfer);
@@ -112,13 +116,13 @@ public class TransferService {
     }
 
     return response.getStatusCode().is2xxSuccessful()
-        ? "SUCCESS FOR " + currentTransfer.getMemberId()
+        ? "SUCCESS FOR " + currentTransfer.getMemberId() + ". Next : " + nextTransactionResponse
         : "FAILED FOR " + currentTransfer.getMemberId();
   }
 
   private HttpHeaders getHttpHeaders(String csrfToken, String cookie) {
     HttpHeaders headers = new HttpHeaders();
-    headers.set("authority", "daffodil.e-oracle.com");
+    headers.set("authority", "carnation.e-oracle.com");
     headers.set(
         "sec-ch-ua",
         "\" Not;A Brand\";v=\"99\", \"Google Chrome\";v=\"91\", \"Chromium\";v=\"91\"");
@@ -130,11 +134,11 @@ public class TransferService {
         "user-agent",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36");
     headers.set("content-type", "application/x-www-form-urlencoded; charset=UTF-8");
-    headers.set("origin", "https://daffodil.e-oracle.com");
+    headers.set("origin", "https://carnation.e-oracle.com");
     headers.set("sec-fetch-site", "same-origin");
     headers.set("sec-fetch-mode", "cors");
     headers.set("sec-fetch-dest", "empty");
-    headers.set("referer", "https://daffodil.e-oracle.com/income_transfer");
+    headers.set("referer", "https://carnation.e-oracle.com/income_transfer");
     headers.set("'accept-language", "en-US,en;q=0.9,te;q=0.8");
     headers.set("cookie", cookie);
     return headers;

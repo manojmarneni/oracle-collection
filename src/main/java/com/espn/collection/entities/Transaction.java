@@ -21,10 +21,10 @@ public class Transaction extends BaseEntity {
     @Column(name = "leader_id")
     String leaderId;
 
-    @Column(name = "csrf_token")
+    @Column(name = "csrf_token", length = 10000)
     String csrfToken;
 
-    @Column(name = "cookie")
+    @Column(name = "cookie", length = 10000)
     String cookie;
 
     @Column(name = "status")
