@@ -19,8 +19,8 @@ public class TeamMembersService {
     for (String member : members) {
       teamMemberRepository.save(
           TeamMembers.builder()
-              .leaderId(teamMembersRequest.getLeaderId())
-              .memberId(member)
+              .leaderId(teamMembersRequest.getLeaderId().trim())
+              .memberId(member.trim())
               .build());
     }
     return "DONE";

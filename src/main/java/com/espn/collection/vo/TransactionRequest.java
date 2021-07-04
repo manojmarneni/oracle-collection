@@ -26,4 +26,8 @@ public class TransactionRequest  {
     @NonNull
     String host;
 
+    @JsonProperty("amount")
+    @NonNull
+    Integer amount;
+
 }

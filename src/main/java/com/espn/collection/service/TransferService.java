@@ -28,7 +28,6 @@ public class TransferService {
   @Autowired TransfersRepository transfersRepository;
   @Autowired GmailFetch gmailFetch;
 
-  @Transactional
   public String transferMoney(String transactionId) {
 
     Optional<Transaction> optionalTransaction =
@@ -60,7 +59,7 @@ public class TransferService {
         restTemplate.exchange(ESPN_URL, HttpMethod.POST, request, String.class);
     String otp = null;
     String responseFromOtpSubmission = null;
-    if (response.getStatusCode().is2xxSuccessful()) {
+    if (response.getStatusCode().is2xxSuccessful() && response.getBody().contains("Please check your email. OTP code sent into your mail ")) {
       log.info("Response from otp generation request: {}", response.getBody());
       currentTransfer.setStatus(Transfers.Status.OTP_GENERATED.name());
 
@@ -74,6 +73,7 @@ public class TransferService {
         responseFromOtpSubmission = transferMoney(transaction.getId().toString(), otp);
       }
     } else {
+      log.info("Failure Response from otp generation request: {}", response.getBody());
       currentTransfer.setStatus(Transfers.Status.FAILURE.name());
       transfersRepository.save(currentTransfer);
     }
@@ -82,7 +82,6 @@ public class TransferService {
         : "FAILED FOR " + currentTransfer.getMemberId();
   }
 
-  @Transactional
   public String transferMoney(String transactionId, String otp) {
     log.info("Submitting OTP : {}", otp);
     Optional<Transaction> optionalTransaction =
@@ -117,12 +116,13 @@ public class TransferService {
 
     String nextTransactionResponse = "";
 
-    if (response.getStatusCode().is2xxSuccessful()) {
+    if (response.getStatusCode().is2xxSuccessful() && response.getBody().contains("Transfer successfully")) {
       log.info("Response from otp submission: {}", response.getBody());
       currentTransfer.setStatus(Transfers.Status.SUCCESS.name());
       transfersRepository.save(currentTransfer);
       nextTransactionResponse = transferMoney(transactionId);
     } else {
+      log.info("Failure Response from otp submission: {}", response.getBody());
       currentTransfer.setStatus(Transfers.Status.FAILURE.name());
       transfersRepository.save(currentTransfer);
       for (Transfers pendingTransfer : pendingTransfers) {

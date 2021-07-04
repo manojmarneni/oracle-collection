@@ -26,7 +26,7 @@ public class TransactionService {
   @Autowired TransfersRepository transfersRepository;
   @Autowired TransactionRepository transactionRepository;
 
-  @Transactional
+//  @Transactional
   public String triggerCollection(TransactionRequest transactionRequest) {
 
     List<TeamMembers> teamMembers =
@@ -45,6 +45,7 @@ public class TransactionService {
                 .cookie(transactionRequest.getCookie())
                 .password(transactionRequest.getPassword())
                 .host(transactionRequest.getHost())
+                .amount(transactionRequest.getAmount())
                 .build());
     for (TeamMembers teamMember : teamMembers) {
       //      if (!transferEligibleMembers.contains(teamMember.getMemberId())) continue;

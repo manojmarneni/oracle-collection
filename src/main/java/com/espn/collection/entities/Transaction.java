@@ -35,5 +35,7 @@ public class Transaction extends BaseEntity {
 
     @Column(name = "host")
     String host;
+    @Column(name = "amount")
+    Integer amount;
 
 }
