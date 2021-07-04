@@ -1,9 +1,11 @@
 package com.espn.collection.service;
 
+import com.espn.collection.email.GmailFetch;
 import com.espn.collection.entities.Transaction;
 import com.espn.collection.entities.Transfers;
 import com.espn.collection.repository.TransactionRepository;
 import com.espn.collection.repository.TransfersRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -18,13 +20,13 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class TransferService {
 
   @Autowired TransactionRepository transactionRepository;
 
   @Autowired TransfersRepository transfersRepository;
-
-  public static final String ESPN_URL = "https://carnation.e-oracle.com/withdraw_action";
+  @Autowired GmailFetch gmailFetch;
 
   @Transactional
   public String transferMoney(String transactionId) {
@@ -42,7 +44,7 @@ public class TransferService {
 
     RestTemplate restTemplate = new RestTemplate();
 
-    HttpHeaders headers = getHttpHeaders(transaction.getCsrfToken(), transaction.getCookie());
+    HttpHeaders headers = getHttpHeaders(transaction.getCsrfToken(), transaction.getCookie(), transaction.getHost());
 
     String requestBody =
         "withdrawAction=doIncomeTransferMailConfirmation&transferType=Other&receiverWallet=MasterWallet&receiverUsername=withdrawAction=doIncomeTransferMailConfirmation&transferType=Other&receiverWallet=MasterWallet&receiverUsername="
@@ -52,24 +54,37 @@ public class TransferService {
             + "&remark=";
 
     HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
+    String ESPN_URL = "https://" + transaction.getHost() + "/withdraw_action";
 
     ResponseEntity<String> response =
         restTemplate.exchange(ESPN_URL, HttpMethod.POST, request, String.class);
-
+    String otp = null;
+    String responseFromOtpSubmission = null;
     if (response.getStatusCode().is2xxSuccessful()) {
+      log.info("Response from otp generation request: {}", response.getBody());
       currentTransfer.setStatus(Transfers.Status.OTP_GENERATED.name());
+
+      try {
+        otp = gmailFetch.getOtpForLeader(transaction.getLeaderId());
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
       transfersRepository.save(currentTransfer);
+      if (otp != null && otp.length() == 6) {
+        responseFromOtpSubmission = transferMoney(transaction.getId().toString(), otp);
+      }
     } else {
       currentTransfer.setStatus(Transfers.Status.FAILURE.name());
       transfersRepository.save(currentTransfer);
     }
     return response.getStatusCode().is2xxSuccessful()
-        ? "SUCCESS FOR " + currentTransfer.getMemberId()
+        ? "SUCCESS FOR " + currentTransfer.getMemberId() + ".." + responseFromOtpSubmission
         : "FAILED FOR " + currentTransfer.getMemberId();
   }
 
   @Transactional
   public String transferMoney(String transactionId, String otp) {
+    log.info("Submitting OTP : {}", otp);
     Optional<Transaction> optionalTransaction =
         transactionRepository.findById(Long.valueOf(transactionId));
     if (!optionalTransaction.isPresent()) return "INVALID TRANSACTION ID";
@@ -85,7 +100,7 @@ public class TransferService {
 
     RestTemplate restTemplate = new RestTemplate();
 
-    HttpHeaders headers = getHttpHeaders(transaction.getCsrfToken(), transaction.getCookie());
+    HttpHeaders headers = getHttpHeaders(transaction.getCsrfToken(), transaction.getCookie(), transaction.getHost());
 
     String requestBody =
         "withdrawAction=doIncomeTransfer&transferType=Other&receiverWallet=MasterWallet&receiverUsername="
@@ -96,13 +111,14 @@ public class TransferService {
             + otp;
 
     HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
-
+    String ESPN_URL = "https://" + transaction.getHost() + "/withdraw_action";
     ResponseEntity<String> response =
         restTemplate.exchange(ESPN_URL, HttpMethod.POST, request, String.class);
 
     String nextTransactionResponse = "";
 
     if (response.getStatusCode().is2xxSuccessful()) {
+      log.info("Response from otp submission: {}", response.getBody());
       currentTransfer.setStatus(Transfers.Status.SUCCESS.name());
       transfersRepository.save(currentTransfer);
       nextTransactionResponse = transferMoney(transactionId);
@@ -120,9 +136,9 @@ public class TransferService {
         : "FAILED FOR " + currentTransfer.getMemberId();
   }
 
-  private HttpHeaders getHttpHeaders(String csrfToken, String cookie) {
+  private HttpHeaders getHttpHeaders(String csrfToken, String cookie, String host) {
     HttpHeaders headers = new HttpHeaders();
-    headers.set("authority", "carnation.e-oracle.com");
+    headers.set("authority", host);
     headers.set(
         "sec-ch-ua",
         "\" Not;A Brand\";v=\"99\", \"Google Chrome\";v=\"91\", \"Chromium\";v=\"91\"");
@@ -134,11 +150,11 @@ public class TransferService {
         "user-agent",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36");
     headers.set("content-type", "application/x-www-form-urlencoded; charset=UTF-8");
-    headers.set("origin", "https://carnation.e-oracle.com");
+    headers.set("origin", "https://" + host);
     headers.set("sec-fetch-site", "same-origin");
     headers.set("sec-fetch-mode", "cors");
     headers.set("sec-fetch-dest", "empty");
-    headers.set("referer", "https://carnation.e-oracle.com/income_transfer");
+    headers.set("referer", "https://" + host + "/income_transfer");
     headers.set("'accept-language", "en-US,en;q=0.9,te;q=0.8");
     headers.set("cookie", cookie);
     return headers;

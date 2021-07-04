@@ -44,6 +44,7 @@ public class TransactionService {
                 .csrfToken(transactionRequest.getCsrfToken())
                 .cookie(transactionRequest.getCookie())
                 .password(transactionRequest.getPassword())
+                .host(transactionRequest.getHost())
                 .build());
     for (TeamMembers teamMember : teamMembers) {
       //      if (!transferEligibleMembers.contains(teamMember.getMemberId())) continue;

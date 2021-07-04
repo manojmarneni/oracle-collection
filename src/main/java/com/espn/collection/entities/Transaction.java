@@ -33,6 +33,7 @@ public class Transaction extends BaseEntity {
     @Column(name = "password")
     String password;
 
-    @OneToMany(mappedBy="transaction")
-    private Set<Transfers> transfers;
+    @Column(name = "host")
+    String host;
+
 }

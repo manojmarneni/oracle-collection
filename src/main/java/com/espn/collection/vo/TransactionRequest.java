@@ -22,5 +22,8 @@ public class TransactionRequest  {
     @JsonProperty("password")
     @NonNull
     String password;
+    @JsonProperty("host")
+    @NonNull
+    String host;
 
 }
